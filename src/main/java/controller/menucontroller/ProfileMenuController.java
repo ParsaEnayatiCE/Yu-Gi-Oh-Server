@@ -16,7 +16,7 @@ public class ProfileMenuController {
         this.currentUser = user;
     }
 
-    public String changeNickname(String newNickname) {
+    public synchronized String changeNickname(String newNickname) {
         if (User.isNickNameTaken(newNickname))
             return "user with nickname " + newNickname + " already exists";
 
@@ -24,7 +24,7 @@ public class ProfileMenuController {
         return StatusEnum.CHANGE_NICKNAME_SUCCESSFULLY.getStatus();
     }
 
-    public String changePass(String oldPass, String newPass) {
+    public synchronized String changePass(String oldPass, String newPass) {
         if (!currentUser.getPassword().equals(oldPass))
             return StatusEnum.CURRENT_PASSWORD_INVALIDITY.getStatus();
 
@@ -36,7 +36,7 @@ public class ProfileMenuController {
 
     }
 
-    public String changeUsername(String newUsername) {
+    public synchronized String changeUsername(String newUsername) {
         if (User.isUserNameTaken(newUsername))
             return "user with username " + newUsername + " already exists";
 

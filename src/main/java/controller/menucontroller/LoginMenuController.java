@@ -1,17 +1,18 @@
 package controller.menucontroller;
 
-import view.MenuEnum;
-import view.ProgramController;
+
 import view.StatusEnum;
 import models.User;
 
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.Objects;
+import java.util.UUID;
 
 //-----------------------------------PLEASE LOGIN FIRST NOT FIXED-------------------
 
 public class LoginMenuController {
-    public static User currentUser;
-    public static boolean isLoggedOn = false;
+    public static ArrayList<User> loggedInUsers = new ArrayList<>();
 
     private boolean doesUserExist(String username) {
         for (User user : User.allUsers) {
@@ -26,7 +27,7 @@ public class LoginMenuController {
         return Objects.requireNonNull(User.getUserByUserName(username)).getPassword().equals(password);
     }
 
-    public String loginUSer(String username, String password) {
+    public synchronized String loginUSer(String username, String password) {
         if (!doesUserExist(username))
             return "There is no user with username " + username;
 
@@ -34,21 +35,37 @@ public class LoginMenuController {
             return StatusEnum.USERNAME_AND_PASSWORD_MISMATCH.getStatus();
 
 
-        currentUser = User.getUserByUserName(username);
-        isLoggedOn = true;
-        ProgramController.currentMenu = MenuEnum.MAIN_MENU;
-        return StatusEnum.USER_LOGIN_SUCCESSFULLY.getStatus();
+        for (User u: User.allUsers
+             ) {
+            if(u.getUserName().equals(username)&&u.getPassword().equals(password)){
+                u.setToken(UUID.randomUUID().toString());
+                loggedInUsers.add(u);
+                return u.getToken();
+            }
+        }
+        return "";
+
     }
 
-    public String createUser(String username, String nickname, String password) {
+    public synchronized String createUser(String username, String nickname, String password) {
         if (User.isUserNameTaken(username))
             return "user with username " + username + " already exists";
 
         if (User.isNickNameTaken(nickname))
             return "user with nickname " + nickname + " already exists";
 
-        currentUser = new User(username, nickname, password);
+        new User(username, nickname, password);
         return StatusEnum.USER_CREATE_SUCCESSFULLY.getStatus();
+    }
+
+    public synchronized String logout(String token,String username){
+        for (int i = 0; i < loggedInUsers.size(); i++) {
+            if (loggedInUsers.get(i).getToken().equals(token) && loggedInUsers.get(i).getUserName().equals(username)){
+                loggedInUsers.remove(i);
+                return StatusEnum.USER_LOGOUT_SUCCESSFULLY.getStatus();
+            }
+        }
+        return "User not found";
     }
 
 }
