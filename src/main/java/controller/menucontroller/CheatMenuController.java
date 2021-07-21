@@ -1,12 +1,10 @@
 package controller.menucontroller;
 
-import controller.duel.PhaseController;
-import controller.duel.SelectionController;
 import controller.duel.singlePlayer.GameController;
+import models.Game;
 import models.Player;
 import models.User;
 import models.cards.Card;
-import view.DuelView;
 import view.Regex;
 import view.StatusEnum;
 
@@ -14,13 +12,12 @@ import java.util.regex.Matcher;
 
 public class CheatMenuController {
 
-    PhaseController phaseController = new PhaseController();
-    GameController gameController = new GameController();
-
-    public String run(String command) {
+    public String run(String command, String token) {
+        Game game = Game.getGameByToken(token);
+        assert game != null;
         Player cheater;
-        if (DuelView.isMultiPlayer)
-            cheater = PhaseController.playerInTurn;
+        if (game.isMultiPlayer())
+            cheater = game.getPlayerInTurn();
         else
             cheater = GameController.player;
         Matcher matcher;
@@ -29,9 +26,9 @@ public class CheatMenuController {
         else if ((matcher = Regex.getMatcher(command, Regex.CHEAT_INCREASE_LP)).matches())
             return increaseLP(Integer.parseInt(matcher.group(2)), cheater);
         else if ((matcher = Regex.getMatcher(command, Regex.CHEAT_SELECT_MORE_CARDS_1)).matches())
-            return selectCardForce(matcher.group(2), cheater);
+            return selectCardForce(matcher.group(2), cheater, game);
         else if ((matcher = Regex.getMatcher(command, Regex.CHEAT_SELECT_MORE_CARDS_2)).matches())
-            return selectCardForce(matcher.group(3), cheater);
+            return selectCardForce(matcher.group(3), cheater, game);
         else
             return StatusEnum.INVALID_COMMAND.getStatus();
     }
@@ -49,9 +46,10 @@ public class CheatMenuController {
         return "Cheat Activated Successfully";
     }
 
-    private String selectCardForce(String cardName, Player cheater) {
+    private String selectCardForce(String cardName, Player cheater, Game game) {
         for (Card card: cheater.getPlayerBoard().getHandCards())
-            if (card.getName().equals(cardName)) SelectionController.selectedCard = card;
+            if (card.getName().equals(cardName))
+                game.setSelectedCard(card);
         return "Cheat Activated Successfully";
     }
 }

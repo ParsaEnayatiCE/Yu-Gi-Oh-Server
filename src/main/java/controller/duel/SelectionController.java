@@ -1,103 +1,117 @@
 package controller.duel;
 
 import controller.duel.singlePlayer.GameController;
-import models.cards.Card;
-import view.DuelView;
+import models.Game;
 import view.StatusEnum;
 
 public class SelectionController {
-    public static Card selectedCard;
 
-    public String selectMyMonster(String monsterNum) {
+    public String selectMyMonster(String monsterNum, String token) {
+        Game game = Game.getGameByToken(token);
+        assert game != null;
         int monsterIndex = Integer.parseInt(monsterNum);
         if (monsterIndex > 5)
             return StatusEnum.INVALID_SELECTION.getStatus();
-        if (DuelView.isMultiPlayer)
-            selectedCard = PhaseController.playerInTurn.getPlayerBoard().getMonsterBoard().get(monsterIndex - 1);
+        if (game.isMultiPlayer())
+            game.setSelectedCard(game.getPlayerInTurn().getPlayerBoard().getMonsterBoard().get(monsterIndex - 1));
         else
-            selectedCard = GameController.player.getPlayerBoard().getMonsterBoard().get(monsterIndex - 1);
-        if (selectedCard == null)
+            game.setSelectedCard(GameController.player.getPlayerBoard().getMonsterBoard().get(monsterIndex - 1));
+        if (game.getSelectedCard() == null)
             return StatusEnum.NO_CARD_FOUND_IN_POSITION.getStatus();
         return StatusEnum.CARD_SELECTED.getStatus();
     }
 
-    public String selectRivalMonster(String monsterNum) {
+    public String selectRivalMonster(String monsterNum, String token) {
+        Game game = Game.getGameByToken(token);
+        assert game != null;
         int monsterIndex = Integer.parseInt(monsterNum);
         if (monsterIndex > 5)
             return StatusEnum.INVALID_SELECTION.getStatus();
-        if (DuelView.isMultiPlayer)
-            selectedCard = PhaseController.playerAgainst.getPlayerBoard().getMonsterBoard().get(monsterIndex - 1);
+        if (game.isMultiPlayer())
+            game.setSelectedCard(game.getPlayerAgainst().getPlayerBoard().getMonsterBoard().get(monsterIndex - 1));
         else
-            selectedCard = GameController.bot.getBoard().getMonsterBoard().get(monsterIndex - 1);
-        if (selectedCard == null)
+            game.setSelectedCard(GameController.bot.getBoard().getMonsterBoard().get(monsterIndex - 1));
+        if (game.getSelectedCard() == null)
             return StatusEnum.NO_CARD_FOUND_IN_POSITION.getStatus();
         return StatusEnum.CARD_SELECTED.getStatus();
     }
 
-    public String selectMySpell(String spellNum) {
+    public String selectMySpell(String spellNum, String token) {
+        Game game = Game.getGameByToken(token);
+        assert game != null;
         int spellIndex = Integer.parseInt(spellNum);
         if (spellIndex > 5)
             return StatusEnum.INVALID_SELECTION.getStatus();
-        if (DuelView.isMultiPlayer)
-            selectedCard = PhaseController.playerInTurn.getPlayerBoard().getSpellAndTrapBoard().get(spellIndex - 1);
+        if (game.isMultiPlayer())
+            game.setSelectedCard(game.getPlayerInTurn().getPlayerBoard().getSpellAndTrapBoard().get(spellIndex - 1));
         else
-            selectedCard = GameController.player.getPlayerBoard().getSpellAndTrapBoard().get(spellIndex - 1);
-        if (selectedCard == null)
+            game.setSelectedCard(GameController.player.getPlayerBoard().getSpellAndTrapBoard().get(spellIndex - 1));
+        if (game.getSelectedCard() == null)
             return StatusEnum.NO_CARD_FOUND_IN_POSITION.getStatus();
         return StatusEnum.CARD_SELECTED.getStatus();
     }
 
-    public String selectRivalSpell(String spellNum) {
+    public String selectRivalSpell(String spellNum, String token) {
+        Game game = Game.getGameByToken(token);
+        assert game != null;
         int spellIndex = Integer.parseInt(spellNum);
         if (spellIndex > 5)
             return StatusEnum.INVALID_SELECTION.getStatus();
-        if (DuelView.isMultiPlayer)
-            selectedCard = PhaseController.playerAgainst.getPlayerBoard().getSpellAndTrapBoard().get(spellIndex - 1);
+        if (game.isMultiPlayer())
+            game.setSelectedCard(game.getPlayerAgainst().getPlayerBoard().getSpellAndTrapBoard().get(spellIndex - 1));
         else
-                selectedCard = GameController.bot.getBoard().getSpellAndTrapBoard().get(spellIndex - 1);
-        if (selectedCard == null)
+            game.setSelectedCard(GameController.bot.getBoard().getSpellAndTrapBoard().get(spellIndex - 1));
+        if (game.getSelectedCard() == null)
             return StatusEnum.NO_CARD_FOUND_IN_POSITION.getStatus();
         return StatusEnum.CARD_SELECTED.getStatus();
     }
 
-    public String selectMyFieldCard() {
-        if (DuelView.isMultiPlayer)
-            selectedCard = PhaseController.playerInTurn.getPlayerBoard().getFieldZone();
+    public String selectMyFieldCard(String token) {
+        Game game = Game.getGameByToken(token);
+        assert game != null;
+        if (game.isMultiPlayer())
+            game.setSelectedCard(game.getPlayerInTurn().getPlayerBoard().getFieldZone());
         else
-            selectedCard = GameController.player.getPlayerBoard().getFieldZone();
-        if (selectedCard == null)
+            game.setSelectedCard(GameController.player.getPlayerBoard().getFieldZone());
+        if (game.getSelectedCard() == null)
             return StatusEnum.NO_CARD_FOUND_IN_POSITION.getStatus();
         return StatusEnum.CARD_SELECTED.getStatus();
     }
 
-    public String selectRivalFieldCard() {
-        if (DuelView.isMultiPlayer)
-            selectedCard = PhaseController.playerAgainst.getPlayerBoard().getFieldZone();
+    public String selectRivalFieldCard(String token) {
+        Game game = Game.getGameByToken(token);
+        assert game != null;
+        if (game.isMultiPlayer())
+            game.setSelectedCard(game.getPlayerAgainst().getPlayerBoard().getFieldZone());
         else
-            selectedCard = GameController.bot.getBoard().getFieldZone();
-        if (selectedCard == null)
+            game.setSelectedCard(GameController.bot.getBoard().getFieldZone());
+        if (game.getSelectedCard() == null)
             return StatusEnum.NO_CARD_FOUND_IN_POSITION.getStatus();
         return StatusEnum.CARD_SELECTED.getStatus();
     }
 
-    public String selectHandCard(String cardNum) {
+    public String selectHandCard(String cardNum, String token) {
+        Game game = Game.getGameByToken(token);
+        assert game != null;
         int index = Integer.parseInt(cardNum);
-        if (DuelView.isMultiPlayer) {
-            if (index > PhaseController.playerInTurn.getPlayerBoard().getHandCards().size())
+        if (game.isMultiPlayer()) {
+            if (index > game.getPlayerInTurn().getPlayerBoard().getHandCards().size())
                 return StatusEnum.INVALID_SELECTION.getStatus();
-            selectedCard = PhaseController.playerInTurn.getPlayerBoard().getHandCards().get(index - 1);
+            game.setSelectedCard(game.getPlayerInTurn().getPlayerBoard().getHandCards().get(index - 1));
         } else {
             if (index > GameController.player.getPlayerBoard().getHandCards().size())
                 return StatusEnum.INVALID_SELECTION.getStatus();
-            selectedCard = GameController.player.getPlayerBoard().getHandCards().get(index - 1);
+            game.setSelectedCard(GameController.player.getPlayerBoard().getHandCards().get(index - 1));
         }
         return StatusEnum.CARD_SELECTED.getStatus();
     }
 
-    public String deSelect() {
-        if (selectedCard == null)
+    public String deSelect(String token) {
+        Game game = Game.getGameByToken(token);
+        assert game != null;
+        if (game.getSelectedCard() == null)
             return StatusEnum.NO_CARD_IS_SELECTED_YET.getStatus();
-        selectedCard = null;
+        game.setSelectedCard(null) ;
         return StatusEnum.CARD_DESELECTED.getStatus();
     }
 }

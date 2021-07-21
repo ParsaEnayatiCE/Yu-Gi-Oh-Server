@@ -5,9 +5,9 @@ import controller.duel.effect.monsterseffect.SummonEffects;
 import controller.duel.singlePlayer.GameController;
 import models.Board;
 import models.EffectsStatus;
+import models.Game;
 import models.cards.Location;
 import models.cards.monsters.*;
-import view.DuelView;
 import view.StatusEnum;
 
 public class SummonController {
@@ -15,19 +15,23 @@ public class SummonController {
     public static boolean hasSummonedInThisTurn = false;
     public static MonsterCard lastSummonedMonster;
 
-    public String summon() {
-        if (checkNormalSummonSetConditions(false) != null)
-            return checkNormalSummonSetConditions(false);
-        return finalizeSummon();
+    public String summon(String token) {
+        Game game = Game.getGameByToken(token);
+        assert game != null;
+        if (checkNormalSummonSetConditions(false, game) != null)
+            return checkNormalSummonSetConditions(false, game);
+        return finalizeSummon(game);
     }
 
-    public String tributeSummon(String tributes) {
-        if (checkNormalSummonSetConditions(false) != null)
-            return checkNormalSummonSetConditions(false);
-        MonsterCard selectedMonster = (MonsterCard) SelectionController.selectedCard;
-        if (DuelView.isMultiPlayer) {
-            if ((selectedMonster.getLevel() < 7 && PhaseController.playerInTurn.getPlayerBoard().getMonsters().size() < 1)
-                    || selectedMonster.getLevel() > 6 && PhaseController.playerInTurn.getPlayerBoard().getMonsters().size() < 2)
+    public String tributeSummon(String tributes, String token) {
+        Game game = Game.getGameByToken(token);
+        assert game != null;
+        if (checkNormalSummonSetConditions(false, game) != null)
+            return checkNormalSummonSetConditions(false, game);
+        MonsterCard selectedMonster = (MonsterCard) game.getSelectedCard();
+        if (game.isMultiPlayer()) {
+            if ((selectedMonster.getLevel() < 7 && game.getPlayerInTurn().getPlayerBoard().getMonsters().size() < 1)
+                    || selectedMonster.getLevel() > 6 && game.getPlayerInTurn().getPlayerBoard().getMonsters().size() < 2)
                 return "there are not enough cards for tribute";
         } else {
             if ((selectedMonster.getLevel() < 7 && GameController.player.getPlayerBoard().getMonsters().size() < 1)
@@ -41,11 +45,11 @@ public class SummonController {
             firstMonster = Integer.parseInt(tributes.substring(0, 1));
             secondMonster = Integer.parseInt(tributes.substring(2, 3));
         }
-        if (DuelView.isMultiPlayer) {
+        if (game.isMultiPlayer()) {
             if (selectedMonster.getLevel() > 6 && secondMonster == 0
-                    || (selectedMonster.getLevel() > 6 && (PhaseController.playerInTurn.getPlayerBoard().getMonsterBoard().get(firstMonster - 1) == null
-                    || PhaseController.playerInTurn.getPlayerBoard().getMonsterBoard().get(secondMonster - 1) == null))
-                    || selectedMonster.getLevel() < 7 && PhaseController.playerInTurn.getPlayerBoard().getMonsterBoard().get(firstMonster - 1) == null)
+                    || (selectedMonster.getLevel() > 6 && (game.getPlayerInTurn().getPlayerBoard().getMonsterBoard().get(firstMonster - 1) == null
+                    || game.getPlayerInTurn().getPlayerBoard().getMonsterBoard().get(secondMonster - 1) == null))
+                    || selectedMonster.getLevel() < 7 && game.getPlayerInTurn().getPlayerBoard().getMonsterBoard().get(firstMonster - 1) == null)
                 return "there are not enough monsters on these addresses";
         } else {
             if (selectedMonster.getLevel() > 6 && secondMonster == 0
@@ -55,46 +59,46 @@ public class SummonController {
                 return "there are not enough monsters on these addresses";
         }
         selectedMonster.setSummonType(SummonType.TRIBUTE_SUMMON);
-        return finalizeSummon();
+        return finalizeSummon(game);
     }
 
-    private String finalizeSummon() {
-        MonsterCard selectedMonster = (MonsterCard) SelectionController.selectedCard;
+    private String finalizeSummon(Game game) {
+        MonsterCard selectedMonster = (MonsterCard) game.getSelectedCard();
         selectedMonster.setLocation(Location.FIELD);
         selectedMonster.setIsHidden(false);
         selectedMonster.setMode(Mode.ATTACK);
-        if (DuelView.isMultiPlayer)
-            PhaseController.playerInTurn.getPlayerBoard().summonOrSetMonster(selectedMonster);
+        if (game.isMultiPlayer())
+            game.getPlayerInTurn().getPlayerBoard().summonOrSetMonster(selectedMonster);
         else
             GameController.player.getPlayerBoard().summonOrSetMonster(selectedMonster);
         hasSummonedInThisTurn = true;
         lastSummonedMonster = selectedMonster;
-        if (DuelView.isMultiPlayer)
-            ContinuousEffects.run(PhaseController.playerInTurn.getPlayerBoard(), PhaseController.playerAgainst.getPlayerBoard());
+        if (game.isMultiPlayer())
+            ContinuousEffects.run(game.getPlayerInTurn().getPlayerBoard(), game.getPlayerAgainst().getPlayerBoard());
         else
             ContinuousEffects.run(GameController.player.getPlayerBoard(), GameController.bot.getBoard());
         return "summoned successfully";
     }
 
-    public static String checkNormalSummonSetConditions(boolean isSpecial) {
-        if (SelectionController.selectedCard == null)
+    public static String checkNormalSummonSetConditions(boolean isSpecial, Game game) {
+        if (game.getSelectedCard() == null)
             return "no card is selected yet";
-        if (DuelView.isMultiPlayer) {
-            if (!PhaseController.playerInTurn.getPlayerBoard().getHandCards().contains(SelectionController.selectedCard)
-                    || !(SelectionController.selectedCard instanceof MonsterCard))
+        if (game.isMultiPlayer()) {
+            if (!game.getPlayerInTurn().getPlayerBoard().getHandCards().contains(game.getSelectedCard())
+                    || !(game.getSelectedCard() instanceof MonsterCard))
                 return "you can't summon this card";
         } else {
-            if (!GameController.player.getPlayerBoard().getHandCards().contains(SelectionController.selectedCard)
-                    || !(SelectionController.selectedCard instanceof MonsterCard))
+            if (!GameController.player.getPlayerBoard().getHandCards().contains(game.getSelectedCard())
+                    || !(game.getSelectedCard() instanceof MonsterCard))
                 return "you can't summon this card";
         }
-        MonsterCard selectedMonster = (MonsterCard) SelectionController.selectedCard;
+        MonsterCard selectedMonster = (MonsterCard) game.getSelectedCard();
         if (!isSpecial && selectedMonster.getLevel() > 4)
             return "you can't summon this card";
-        if (DuelView.isMultiPlayer) {
-            if (PhaseController.currentPhase != GamePhase.MAIN1 && PhaseController.currentPhase != GamePhase.MAIN2)
+        if (game.isMultiPlayer()) {
+            if (game.getCurrentPhase() != GamePhase.MAIN1 && game.getCurrentPhase() != GamePhase.MAIN2)
                 return "action not allowed in this phase";
-            if (PhaseController.playerInTurn.getPlayerBoard().getMonsters().size() == 5)
+            if (game.getPlayerInTurn().getPlayerBoard().getMonsters().size() == 5)
                 return "monster card zone is full";
         } else {
             if (GameController.currentPhase != GamePhase.MAIN1 && GameController.currentPhase != GamePhase.MAIN2)
@@ -107,19 +111,23 @@ public class SummonController {
         return null;
     }
 
-    public String flipSummon() {
-        if (SelectionController.selectedCard == null)
+    public String flipSummon(String token) {
+        Game game = Game.getGameByToken(token);
+        assert game != null;
+        if (!game.isPlayerInTurn(token))
+            return "it's not your turn";
+        if (game.getSelectedCard() == null)
             return "no card is selected yet";
-        if (DuelView.isMultiPlayer) {
-            if (!PhaseController.playerInTurn.getPlayerBoard().getMonsters().contains((MonsterCard) SelectionController.selectedCard))
+        if (game.isMultiPlayer()) {
+            if (!game.getPlayerInTurn().getPlayerBoard().getMonsters().contains((MonsterCard) game.getSelectedCard()))
                 return "you can't change this card position";
         } else {
-            if (!GameController.player.getPlayerBoard().getMonsters().contains((MonsterCard) SelectionController.selectedCard))
+            if (!GameController.player.getPlayerBoard().getMonsters().contains((MonsterCard) game.getSelectedCard()))
                 return "you can't change this card position";
         }
-        MonsterCard selectedMonster = (MonsterCard) SelectionController.selectedCard;
-        if (DuelView.isMultiPlayer) {
-            if (PhaseController.currentPhase != GamePhase.MAIN1 && PhaseController.currentPhase != GamePhase.MAIN2)
+        MonsterCard selectedMonster = (MonsterCard) game.getSelectedCard();
+        if (game.isMultiPlayer()) {
+            if (game.getCurrentPhase() != GamePhase.MAIN1 && game.getCurrentPhase() != GamePhase.MAIN2)
                 return "action not allowed in this phase";
         } else {
             if (GameController.currentPhase != GamePhase.MAIN1 && GameController.currentPhase != GamePhase.MAIN2)
@@ -131,31 +139,33 @@ public class SummonController {
         selectedMonster.setIsHidden(false);
         lastSummonedMonster = selectedMonster;
         selectedMonster.setSummonType(SummonType.FLIP_SUMMON);
-        if (DuelView.isMultiPlayer) {
-            ContinuousEffects.run(PhaseController.playerInTurn.getPlayerBoard(), PhaseController.playerAgainst.getPlayerBoard());
-            SummonEffects.run((MonsterCard) SelectionController.selectedCard, PhaseController.playerAgainst.getPlayerBoard(), PhaseController.playerInTurn.getPlayerBoard());
+        if (game.isMultiPlayer()) {
+            ContinuousEffects.run(game.getPlayerInTurn().getPlayerBoard(), game.getPlayerAgainst().getPlayerBoard());
+            SummonEffects.run((MonsterCard) game.getSelectedCard(), game.getPlayerAgainst().getPlayerBoard(), game.getPlayerInTurn().getPlayerBoard());
         } else {
             ContinuousEffects.run(GameController.player.getPlayerBoard(), GameController.bot.getBoard());
-            SummonEffects.run((MonsterCard) SelectionController.selectedCard, GameController.bot.getBoard(), GameController.player.getPlayerBoard());
+            SummonEffects.run((MonsterCard) game.getSelectedCard(), GameController.bot.getBoard(), GameController.player.getPlayerBoard());
         }
         return "flip summoned successfully";
     }
 
-    public String specialSummon() {
-        if (checkNormalSummonSetConditions(true) != null)
-            return checkNormalSummonSetConditions(true);
-        if (checkSpecialSummonStatus() != null)
-            return checkSpecialSummonStatus();
-        return finalizeSummon();
+    public String specialSummon(String token) {
+        Game game = Game.getGameByToken(token);
+        assert game != null;
+        if (checkNormalSummonSetConditions(true, game) != null)
+            return checkNormalSummonSetConditions(true, game);
+        if (checkSpecialSummonStatus(game) != null)
+            return checkSpecialSummonStatus(game);
+        return finalizeSummon(game);
     }
 
-    private String checkSpecialSummonStatus() {
+    private String checkSpecialSummonStatus(Game game) {
         EffectsStatus effectsStatus;
-        if (DuelView.isMultiPlayer)
-            effectsStatus = PhaseController.playerInTurn.getPlayerBoard().getEffectsStatus();
+        if (game.isMultiPlayer())
+            effectsStatus = game.getPlayerInTurn().getPlayerBoard().getEffectsStatus();
         else
             effectsStatus = GameController.player.getPlayerBoard().getEffectsStatus();
-        MonsterCard monsterCard = (MonsterCard) SelectionController.selectedCard;
+        MonsterCard monsterCard = (MonsterCard) game.getSelectedCard();
         if (effectsStatus.getSpecialSummonStatus() == SpecialSummonStatus.NONE)
             return StatusEnum.NO_WAY_TO_SPECIAL_SUMMON.getStatus();
         if (effectsStatus.getSpecialSummonStatus() == SpecialSummonStatus.FROM_GRAVEYARD
@@ -175,13 +185,15 @@ public class SummonController {
         return null;
     }
 
-    public String ritualSummon(String monsterIndexes) {
-        if (checkNormalSummonSetConditions(true) != null)
-            return checkNormalSummonSetConditions(true);
-        MonsterCard selectedMonster = (MonsterCard) SelectionController.selectedCard;
+    public String ritualSummon(String monsterIndexes, String token) {
+        Game game = Game.getGameByToken(token);
+        assert game != null;
+        if (checkNormalSummonSetConditions(true, game) != null)
+            return checkNormalSummonSetConditions(true, game);
+        MonsterCard selectedMonster = (MonsterCard) game.getSelectedCard();
         Board board;
-        if (DuelView.isMultiPlayer)
-            board = PhaseController.playerInTurn.getPlayerBoard();
+        if (game.isMultiPlayer())
+            board = game.getPlayerInTurn().getPlayerBoard();
         else
             board = GameController.player.getPlayerBoard();
         if (selectedMonster.getTrait() != Trait.RITUAL || !board.getEffectsStatus().getCanRitualSummon())
@@ -200,6 +212,6 @@ public class SummonController {
             return StatusEnum.NO_WAY_TO_RITUAL.getStatus();
         board.getEffectsStatus().setCanRitualSummon(false);
         selectedMonster.setSummonType(SummonType.SPECIAL_SUMMON);
-        return finalizeSummon();
+        return finalizeSummon(game);
     }
 }

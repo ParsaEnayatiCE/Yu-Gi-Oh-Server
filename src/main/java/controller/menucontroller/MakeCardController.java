@@ -19,7 +19,7 @@ import java.nio.file.StandardOpenOption;
 
 public class MakeCardController {
 
-    private final User user = LoginMenuController.currentUser;
+    private final User user = null;
 
     public String calculateMonsterLevel(Spinner<Integer> attackPointSpinner, Spinner<Integer> defensePointSpinner, CheckBox[] effects) {
         int level = 1;

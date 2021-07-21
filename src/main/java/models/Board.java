@@ -1,11 +1,13 @@
 package models;
 
+import com.google.gson.Gson;
 import models.cards.Card;
 import models.cards.Location;
 import models.cards.monsters.Mode;
 import models.cards.monsters.MonsterCard;
 import models.cards.spelltrap.SpellTrapCard;
 
+import java.lang.reflect.Type;
 import java.util.ArrayList;
 import java.util.Collections;
 
@@ -434,6 +436,11 @@ public class Board {
             boardString.append("O");
 
         return boardString.toString();
+    }
+
+    public String turnToJson() {
+        Gson gson = new Gson();
+        return gson.toJson(this);
     }
 
 }

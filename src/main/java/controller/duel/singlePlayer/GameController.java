@@ -1,6 +1,5 @@
 package controller.duel.singlePlayer;
 
-import controller.GUI.DuelViewSceneController;
 import controller.duel.*;
 import controller.duel.effect.monsterseffect.ContinuousEffects;
 import controller.duel.effect.monsterseffect.TurnEffects;
@@ -13,12 +12,10 @@ import javafx.animation.Timeline;
 import javafx.scene.input.MouseEvent;
 import javafx.util.Duration;
 import models.Chain;
+import models.Game;
 import models.Player;
 import models.User;
 import models.cards.Card;
-import view.DuelView;
-import view.MenuEnum;
-import view.ProgramController;
 
 import java.io.IOException;
 
@@ -29,7 +26,7 @@ public class GameController {
     public static GamePhase currentPhase = GamePhase.DRAW;
     public static boolean isFirstPlay = true;
 
-    public void startTheGame(MouseEvent event) {
+    public void startTheGame(String token) {
         isFirstPlay = true;
         bot = AI.getInstance();
         player = bot.getOpponent();
@@ -43,7 +40,7 @@ public class GameController {
         }
         System.out.println(printBoard());
         if (!isPlayerTurn)
-            runBot(event);
+            runBot(Game.getGameByToken(token));
     }
 
     public String printBoard() {
@@ -52,15 +49,16 @@ public class GameController {
             String playerBoard = Player.getFirstPlayer().getPlayerBoard().toString();
             String botBoard = AI.getInstance().getBoard().reverseToString();
             return botBoard + middleLine + playerBoard;
-        }
-        else {
+        } else {
             String playerBoard = Player.getFirstPlayer().getPlayerBoard().reverseToString();
             String botBoard = AI.getInstance().getBoard().toString();
             return playerBoard + middleLine + botBoard;
         }
     }
 
-    public String changePhase(MouseEvent event) {
+    public String changePhase(MouseEvent event, String token) {
+        Game game = Game.getGameByToken(token);
+        assert game != null;
         findNextPhase();
         AttackController.alreadyAttackedCards.clear();
         AttackController.isBattleHappened = false;
@@ -75,17 +73,16 @@ public class GameController {
                 card = bot.getBoard().drawCard();
             if (card == null) {
                 if (isPlayerTurn)
-                    endGame("bot", event);
+                    endGame("bot", game);
                 else
-                    endGame("player", event);
+                    endGame("player", game);
             }
             if (isPlayerTurn) {
                 assert card != null;
                 result.append("\nnew card added to hand: ").append(card.getName());
             } else
-                runBot(event);
-        }
-        else if (currentPhase == GamePhase.STANDBY) {
+                runBot(game);
+        } else if (currentPhase == GamePhase.STANDBY) {
             if (isPlayerTurn) {
                 TurnEffects.run(player.getPlayerBoard(), bot.getBoard());
                 FiledSpells.check(player.getPlayerBoard(), bot.getBoard());
@@ -97,28 +94,24 @@ public class GameController {
                 MessengerOfPeace.checkStandBy(bot.getBoard());
                 player.getPlayerBoard().getEffectsStatus().setCanRivalPickCard(true);
             }
-        }
-        else if (currentPhase == GamePhase.BATTLE) {
+        } else if (currentPhase == GamePhase.BATTLE) {
             if (isPlayerTurn)
                 ContinuousEffects.run(player.getPlayerBoard(), bot.getBoard());
             else
                 ContinuousEffects.run(bot.getBoard(), player.getPlayerBoard());
-        }
-        else if (currentPhase == GamePhase.END) {
+        } else if (currentPhase == GamePhase.END) {
             if (isPlayerTurn) {
                 result.append("\nit's ").append(bot.getName()).append("'s turn");
                 ContinuousEffects.run(player.getPlayerBoard(), bot.getBoard());
-            }
-            else {
+            } else {
                 result.append("\nit's ").append(player.getNickName()).append("'s turn");
                 ContinuousEffects.run(bot.getBoard(), player.getPlayerBoard());
             }
             Chain.activate();
-            SelectionController.selectedCard = null;
+            game.setSelectedCard(null);
             resetSomeEffects();
             SummonController.hasSummonedInThisTurn = false;
             isFirstPlay = false;
-            System.out.println(changePhase(event));
         }
         return result.toString();
     }
@@ -151,105 +144,90 @@ public class GameController {
             currentPhase = GamePhase.DRAW;
     }
 
-    public void endGame(String winner, MouseEvent event) {
+    public void endGame(String winner, Game game) {
         User user = player.getUser();
-        if (DuelView.rounds == 1) {
+        if (game.getRounds() == 1) {
             if (winner.equals("bot")) {
                 user.setMoney(user.getMoney() + 100);
             } else {
                 user.setMoney(user.getMoney() + 1000 + player.getPlayerBoard().getLifePoints());
                 user.setScore(user.getScore() + 1000);
             }
-            ProgramController.currentMenu = MenuEnum.MAIN_MENU;
             Player.removePlayers();
             if (winner.equals("bot")) {
                 System.out.println(bot.getName() + " won the whole match with score: 1-0");
-                try {
-                    DuelViewSceneController.end(null, event);
-                } catch (IOException e) {
-                    e.printStackTrace();
-                }
-            }
-            else {
+            } else {
                 System.out.println(user.getUserName() + " won the whole match with score: 1-0");
-                try {
-                    DuelViewSceneController.end(user, event);
-                } catch (IOException e) {
-                    e.printStackTrace();
-                }
             }
-            DuelView.shouldDrawBoard = false;
-        }
-        else {
-            if (winner.equals("bot"))
-                DuelView.botWins++;
-            else
-                DuelView.player1Wins++;
-            player.setMaxLifePoint(player.getPlayerBoard().getLifePoints());
-            if (DuelView.player1Wins == 2 || DuelView.botWins == 2) {
-                if (winner.equals("bot")) {
-                    user.setMoney(user.getMoney() + 300);
-                } else {
-                    user.setMoney(user.getMoney() + player.getMaxLifePoint() * 3 + 3000);
-                    user.setScore(user.getScore() + 3000);
-                }
-                ProgramController.currentMenu = MenuEnum.MAIN_MENU;
-                Player.removePlayers();
-                if (winner.equals("bot")) {
-                    System.out.println(bot.getName() + " won the whole match with score: " +
-                            DuelView.botWins + "-" + DuelView.player1Wins);
-                    try {
-                        DuelViewSceneController.end(null, event);
-                    } catch (IOException e) {
-                        e.printStackTrace();
-                    }
-                }
-                else {
-                    System.out.println(player.getUserName() + " won the whole match with score: " +
-                            DuelView.player1Wins + "-" + DuelView.botWins);
-                    try {
-                        DuelViewSceneController.end(user, event);
-                    } catch (IOException e) {
-                        e.printStackTrace();
-                    }
-                }
-                DuelView.shouldDrawBoard = false;
-            }
-            else {
-                if (winner.equals("bot"))
-                    System.out.println(bot.getName() + "won the game and the score is: " +
-                            DuelView.botWins + "-" + DuelView.player1Wins);
-                else
-                    System.out.println(player.getUserName() + "won the game and the score is: " +
-                            DuelView.player1Wins + "-" + DuelView.botWins);
-                bot.getBoard().resetTheBoard(null, null);
-                isFirstPlay = true;
-                currentPhase = GamePhase.DRAW;
-            }
+        } else {
+//            if (winner.equals("bot"))
+//                DuelView.botWins++;
+//            else
+//                DuelView.player1Wins++;
+//            player.setMaxLifePoint(player.getPlayerBoard().getLifePoints());
+//            if (DuelView.player1Wins == 2 || DuelView.botWins == 2) {
+//                if (winner.equals("bot")) {
+//                    user.setMoney(user.getMoney() + 300);
+//                } else {
+//                    user.setMoney(user.getMoney() + player.getMaxLifePoint() * 3 + 3000);
+//                    user.setScore(user.getScore() + 3000);
+//                }
+//                ProgramController.currentMenu = MenuEnum.MAIN_MENU;
+//                Player.removePlayers();
+//                if (winner.equals("bot")) {
+//                    System.out.println(bot.getName() + " won the whole match with score: " +
+//                            DuelView.botWins + "-" + DuelView.player1Wins);
+//                    try {
+//                        DuelViewSceneController.end(null, event);
+//                    } catch (IOException e) {
+//                        e.printStackTrace();
+//                    }
+//                }
+//                else {
+//                    System.out.println(player.getUserName() + " won the whole match with score: " +
+//                            DuelView.player1Wins + "-" + DuelView.botWins);
+//                    try {
+//                        DuelViewSceneController.end(user, event);
+//                    } catch (IOException e) {
+//                        e.printStackTrace();
+//                    }
+//                }
+//                DuelView.shouldDrawBoard = false;
+//            }
+//            else {
+//                if (winner.equals("bot"))
+//                    System.out.println(bot.getName() + "won the game and the score is: " +
+//                            DuelView.botWins + "-" + DuelView.player1Wins);
+//                else
+//                    System.out.println(player.getUserName() + "won the game and the score is: " +
+//                            DuelView.player1Wins + "-" + DuelView.botWins);
+//                bot.getBoard().resetTheBoard(null, null);
+//                isFirstPlay = true;
+//                currentPhase = GamePhase.DRAW;
         }
     }
 
-    private void runBot(MouseEvent event) {
+    private void runBot(Game game) {
         bot.resetAttacks();
         if (bot.getName().equals("EasyBot")) {
             Timeline timeline = new Timeline();
             KeyFrame keyFrame1 = new KeyFrame(Duration.seconds(1), e -> {
                 ((EasyBot) bot).summonBestMonster();
                 bot.summonSpellTrapIfCan();
-                if (!isFirstPlay)
-                    DuelViewSceneController.getInstance().showChangesForBot();
+                //if (!isFirstPlay)
+                    //DuelViewSceneController.getInstance().showChangesForBot();
             });
             KeyFrame keyFrame2 = new KeyFrame(Duration.seconds(1), e -> {
                 ((EasyBot) bot).checkSpellForActivate(currentPhase);
                 ((EasyBot) bot).checkTrapForActivate();
-                if (!isFirstPlay)
-                    DuelViewSceneController.getInstance().showChangesForBot();
+                //if (!isFirstPlay)
+                   // DuelViewSceneController.getInstance().showChangesForBot();
             });
             KeyFrame keyFrame3 = new KeyFrame(Duration.seconds(1), e -> {
-                if (!isFirstPlay) {
-                    ((EasyBot) bot).attack();
-                    DuelViewSceneController.getInstance().showChangesForBot();
-                }
+               // if (!isFirstPlay) {
+                    //((EasyBot) bot).attack();
+                    //DuelViewSceneController.getInstance().showChangesForBot();
+               // }
             });
             timeline.getKeyFrames().setAll(keyFrame1, keyFrame2, keyFrame3);
             timeline.setCycleCount(1);
@@ -259,32 +237,31 @@ public class GameController {
             KeyFrame keyFrame1 = new KeyFrame(Duration.seconds(1), e -> {
                 ((HardBot) bot).summonBestMonster();
                 bot.summonSpellTrapIfCan();
-                if (!isFirstPlay)
-                    DuelViewSceneController.getInstance().showChangesForBot();
+                //if (!isFirstPlay)
+                    //DuelViewSceneController.getInstance().showChangesForBot();
             });
             KeyFrame keyFrame2 = new KeyFrame(Duration.seconds(1), e -> {
                 ((HardBot) bot).checkSpellForActivate(currentPhase);
                 ((HardBot) bot).checkTrapForActivate();
-                if (!isFirstPlay)
-                    DuelViewSceneController.getInstance().showChangesForBot();
+                //if (!isFirstPlay)
+                    //DuelViewSceneController.getInstance().showChangesForBot();
             });
             KeyFrame keyFrame3 = new KeyFrame(Duration.seconds(1), e -> {
-                if (!isFirstPlay) {
-                    ((HardBot) bot).attack();
-                    DuelViewSceneController.getInstance().showChangesForBot();
-                }
+                //if (!isFirstPlay) {
+                    //((HardBot) bot).attack();
+                    //DuelViewSceneController.getInstance().showChangesForBot();
+                //}
             });
             timeline.getKeyFrames().setAll(keyFrame1, keyFrame2, keyFrame3);
             timeline.setCycleCount(1);
             timeline.play();
         }
         if (bot.getOpponent().getPlayerBoard().getLifePoints() <= 0)
-            endGame("bot", event);
+            endGame("bot", game);
         if (bot.getBoard().getLifePoints() <= 0)
-            endGame("player", event);
+            endGame("player", game);
         boolean isFirst = isFirstPlay;
         currentPhase = GamePhase.BATTLE;
-        System.out.println(changePhase(event));
         if (isFirst)
             System.out.println(printBoard());
     }

@@ -8,19 +8,21 @@ import controller.duel.effect.traps.NormalTraps;
 import controller.duel.effect.traps.SummonTraps;
 import controller.duel.effect.traps.TimeSeal;
 import models.Board;
+import models.Game;
 import models.cards.CardType;
 import models.cards.monsters.MonsterCard;
 import models.cards.spelltrap.SpellTrapCard;
-import view.DuelView;
 import view.StatusEnum;
 
 public class ActivationController {
 
-    public String equip(int monsterIndex) {
-        if (checkActivationConditions() != null)
-            return checkActivationConditions();
-        if (DuelView.isMultiPlayer) {
-            if (PhaseController.currentPhase != GamePhase.MAIN2 && PhaseController.currentPhase != GamePhase.MAIN1)
+    public String equip(int monsterIndex, String token) {
+        Game game = Game.getGameByToken(token);
+        assert game != null;
+        if (checkActivationConditions(game) != null)
+            return checkActivationConditions(game);
+        if (game.isMultiPlayer()) {
+            if (game.getCurrentPhase() != GamePhase.MAIN2 && game.getCurrentPhase() != GamePhase.MAIN1)
                 return StatusEnum.CANT_DO_THIS_ACTION_IN_THIS_PHASE.getStatus();
         } else {
             if (GameController.currentPhase != GamePhase.MAIN2 && GameController.currentPhase != GamePhase.MAIN1)
@@ -29,47 +31,49 @@ public class ActivationController {
         if (monsterIndex > 5)
             return StatusEnum.INVALID_SELECTION.getStatus();
         MonsterCard monsterCard;
-        if (DuelView.isMultiPlayer)
-            monsterCard = PhaseController.playerInTurn.getPlayerBoard().getMonsterBoard().get(monsterIndex - 1);
+        if (game.isMultiPlayer())
+            monsterCard = game.getPlayerInTurn().getPlayerBoard().getMonsterBoard().get(monsterIndex - 1);
         else
             monsterCard = GameController.player.getPlayerBoard().getMonsterBoard().get(monsterIndex - 1);
         if (monsterCard == null)
             return StatusEnum.NO_CARD_FOUND_IN_POSITION.getStatus();
-        boolean hasAffected = EquipSpells.equip((SpellTrapCard) SelectionController.selectedCard, monsterCard);
+        boolean hasAffected = EquipSpells.equip((SpellTrapCard) game.getSelectedCard(), monsterCard);
         if (!hasAffected)
             return "wrong selection";
         return StatusEnum.SPELL_ACTIVATED.getStatus();
     }
 
-    public String activate() {
-        if (checkActivationConditions() != null)
-            return checkActivationConditions();
-        if (DuelView.isMultiPlayer) {
-            if (CustomEffects.activate(SelectionController.selectedCard, PhaseController.playerInTurn.getPlayerBoard(),
-                    PhaseController.playerAgainst.getPlayerBoard()))
+    public String activate(String token) {
+        Game game = Game.getGameByToken(token);
+        assert game != null;
+        if (checkActivationConditions(game) != null)
+            return checkActivationConditions(game);
+        if (game.isMultiPlayer()) {
+            if (CustomEffects.activate(game.getSelectedCard(), game.getPlayerInTurn().getPlayerBoard(),
+                    game.getPlayerAgainst().getPlayerBoard()))
                 return "spell activated";
         } else {
-            if (CustomEffects.activate(SelectionController.selectedCard, GameController.player.getPlayerBoard(),
+            if (CustomEffects.activate(game.getSelectedCard(), GameController.player.getPlayerBoard(),
                     GameController.bot.getBoard()))
                 return "spell activated";
         }
-        if (SelectionController.selectedCard.getCardType() == CardType.SPELL)
-            return activateSpell();
+        if (game.getSelectedCard().getCardType() == CardType.SPELL)
+            return activateSpell(game);
         else
-            return activateTrap();
+            return activateTrap(game);
     }
 
-    public String activateTrap() {
-        if (checkActivationConditions() != null)
-            return checkActivationConditions();
-        SpellTrapCard trapCard = (SpellTrapCard) SelectionController.selectedCard;
+    public String activateTrap(Game game) {
+        if (checkActivationConditions(game) != null)
+            return checkActivationConditions(game);
+        SpellTrapCard trapCard = (SpellTrapCard) game.getSelectedCard();
         Board myBoard;
         Board rivalBoard;
-        if (DuelView.isMultiPlayer) {
-            myBoard = PhaseController.playerInTurn.getPlayerBoard();
-            rivalBoard = PhaseController.playerAgainst.getPlayerBoard();
-            if ((PhaseController.currentPhase == GamePhase.RIVAL_TURN && !trapCard.getIsHidden())
-                    || (PhaseController.currentPhase != GamePhase.MAIN1 && PhaseController.currentPhase != GamePhase.MAIN2))
+        if (game.isMultiPlayer()) {
+            myBoard = game.getPlayerInTurn().getPlayerBoard();
+            rivalBoard = game.getPlayerAgainst().getPlayerBoard();
+            if ((game.getCurrentPhase() == GamePhase.RIVAL_TURN && !trapCard.getIsHidden())
+                    || (game.getCurrentPhase() != GamePhase.MAIN1 && game.getCurrentPhase() != GamePhase.MAIN2))
                 return StatusEnum.CANT_DO_THIS_ACTION_IN_THIS_PHASE.getStatus();
         } else {
             myBoard = GameController.player.getPlayerBoard();
@@ -89,31 +93,31 @@ public class ActivationController {
         return "trap can't be activated";
     }
 
-    public String activateSpell() {
-        if (checkActivationConditions() != null)
-            return checkActivationConditions();
-        SpellTrapCard spellCard = (SpellTrapCard) SelectionController.selectedCard;
+    public String activateSpell(Game game) {
+        if (checkActivationConditions(game) != null)
+            return checkActivationConditions(game);
+        SpellTrapCard spellCard = (SpellTrapCard) game.getSelectedCard();
 
-        if (DuelView.isMultiPlayer) {
-            if (PhaseController.currentPhase == GamePhase.RIVAL_TURN && SelectionController.selectedCard.getIsHidden()) {
-                if (QuickPlays.activate(spellCard, PhaseController.playerInTurn.getPlayerBoard(), PhaseController.playerAgainst.getPlayerBoard()))
+        if (game.isMultiPlayer()) {
+            if (game.getCurrentPhase() == GamePhase.RIVAL_TURN && game.getSelectedCard().getIsHidden()) {
+                if (QuickPlays.activate(spellCard, game.getPlayerInTurn().getPlayerBoard(), game.getPlayerAgainst().getPlayerBoard()))
                     return StatusEnum.SPELL_ACTIVATED.getStatus();
                 else return StatusEnum.CANT_DO_THIS_ACTION_IN_THIS_PHASE.getStatus();
             }
-            if (PhaseController.currentPhase != GamePhase.MAIN2 && PhaseController.currentPhase != GamePhase.MAIN1)
+            if (game.getCurrentPhase() != GamePhase.MAIN2 && game.getCurrentPhase() != GamePhase.MAIN1)
                 return StatusEnum.CANT_DO_THIS_ACTION_IN_THIS_PHASE.getStatus();
-            if (MessengerOfPeace.activate(spellCard, PhaseController.playerInTurn.getPlayerBoard()))
+            if (MessengerOfPeace.activate(spellCard, game.getPlayerInTurn().getPlayerBoard()))
                 return StatusEnum.SPELL_ACTIVATED.getStatus();
-            else if (NormalActivate.activate(spellCard, PhaseController.playerInTurn.getPlayerBoard(), PhaseController.playerAgainst.getPlayerBoard()))
+            else if (NormalActivate.activate(spellCard, game.getPlayerInTurn().getPlayerBoard(), game.getPlayerAgainst().getPlayerBoard()))
                 return StatusEnum.SPELL_ACTIVATED.getStatus();
-            else if (TurnSpells.activate(spellCard, PhaseController.playerInTurn.getPlayerBoard(), AttackController.isAnyMonsterDead))
+            else if (TurnSpells.activate(spellCard, game.getPlayerInTurn().getPlayerBoard(), AttackController.isAnyMonsterDead))
                 return StatusEnum.SPELL_ACTIVATED.getStatus();
-            else if (QuickPlays.activate(spellCard, PhaseController.playerInTurn.getPlayerBoard(), PhaseController.playerAgainst.getPlayerBoard()))
+            else if (QuickPlays.activate(spellCard, game.getPlayerInTurn().getPlayerBoard(), game.getPlayerAgainst().getPlayerBoard()))
                 return StatusEnum.SPELL_ACTIVATED.getStatus();
-            else if (RingOfDefense.activate(spellCard, PhaseController.playerInTurn.getPlayerBoard()))
+            else if (RingOfDefense.activate(spellCard, game.getPlayerInTurn().getPlayerBoard()))
                 return StatusEnum.SPELL_ACTIVATED.getStatus();
         } else {
-            if (GameController.currentPhase == GamePhase.RIVAL_TURN && SelectionController.selectedCard.getIsHidden()) {
+            if (GameController.currentPhase == GamePhase.RIVAL_TURN && game.getSelectedCard().getIsHidden()) {
                 if (QuickPlays.activate(spellCard, GameController.player.getPlayerBoard(), GameController.bot.getBoard()))
                     return StatusEnum.SPELL_ACTIVATED.getStatus();
                 else return StatusEnum.CANT_DO_THIS_ACTION_IN_THIS_PHASE.getStatus();
@@ -135,29 +139,31 @@ public class ActivationController {
         return StatusEnum.PREPARATION_OF_SPELL_NOT_DONE.getStatus();
     }
 
-    public String activateOnMonster(int monsterIndex) {
-        if (checkActivationConditions() != null)
-            return checkActivationConditions();
-        if (DuelView.isMultiPlayer) {
-            if (PhaseController.currentPhase != GamePhase.MAIN2 && PhaseController.currentPhase != GamePhase.MAIN1)
+    public String activateOnMonster(int monsterIndex, String token) {
+        Game game = Game.getGameByToken(token);
+        assert game != null;
+        if (checkActivationConditions(game) != null)
+            return checkActivationConditions(game);
+        if (game.isMultiPlayer()) {
+            if (game.getCurrentPhase() != GamePhase.MAIN2 && game.getCurrentPhase() != GamePhase.MAIN1)
                 return StatusEnum.CANT_DO_THIS_ACTION_IN_THIS_PHASE.getStatus();
-            if (OnMonsterSpells.activate((SpellTrapCard) SelectionController.selectedCard,
-                    PhaseController.playerInTurn.getPlayerBoard(), PhaseController.playerAgainst.getPlayerBoard(), monsterIndex))
+            if (OnMonsterSpells.activate((SpellTrapCard) game.getSelectedCard(),
+                    game.getPlayerInTurn().getPlayerBoard(), game.getPlayerAgainst().getPlayerBoard(), monsterIndex))
                 return StatusEnum.SPELL_ACTIVATED.getStatus();
         } else {
             if (GameController.currentPhase != GamePhase.MAIN2 && GameController.currentPhase != GamePhase.MAIN1)
                 return StatusEnum.CANT_DO_THIS_ACTION_IN_THIS_PHASE.getStatus();
-            if (OnMonsterSpells.activate((SpellTrapCard) SelectionController.selectedCard,
+            if (OnMonsterSpells.activate((SpellTrapCard) game.getSelectedCard(),
                     GameController.player.getPlayerBoard(), GameController.bot.getBoard(), monsterIndex))
                 return StatusEnum.SPELL_ACTIVATED.getStatus();
         }
         return "wrong selection";
     }
 
-    private String checkActivationConditions() {
-        if (SelectionController.selectedCard == null)
+    private String checkActivationConditions(Game game) {
+        if (game.getSelectedCard() == null)
             return StatusEnum.NO_CARD_SELECTED_YET.getStatus();
-        if (SelectionController.selectedCard.getCardType() == CardType.MONSTER)
+        if (game.getSelectedCard().getCardType() == CardType.MONSTER)
             return "activate is not for monsters";
         return null;
     }

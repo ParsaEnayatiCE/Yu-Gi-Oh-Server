@@ -1,17 +1,14 @@
 package controller.duel;
 
-import controller.GUI.DuelViewSceneController;
 import controller.duel.effect.monsterseffect.GetAttackedEffects;
 import controller.duel.effect.traps.GetAttackedTraps;
 import controller.duel.singlePlayer.AI;
 import controller.duel.singlePlayer.GameController;
-import javafx.scene.input.MouseEvent;
+import models.Game;
 import models.Player;
 import models.cards.monsters.Mode;
 import models.cards.monsters.MonsterCard;
-import view.DuelView;
 import view.StatusEnum;
-
 import java.util.ArrayList;
 
 public class AttackController {
@@ -66,9 +63,9 @@ public class AttackController {
         }
     }
 
-    public void destroyMonster(MonsterCard playerCard, MonsterCard opponentCard) {
+    public void destroyMonster(MonsterCard playerCard, MonsterCard opponentCard, Game game) {
 
-        if (DuelView.isMultiPlayer) {
+        if (game.isMultiPlayer()) {
             if (isPlayerMonsterStrongerThanOpponent(playerCard, opponentCard) == 1) {
                 if (GetAttackedEffects.run(playerCard, opponentCard, opponent.getPlayerBoard(), player.getPlayerBoard()))
                     return;
@@ -106,21 +103,23 @@ public class AttackController {
 
 
     //-----------------------Attacks------------------------------
-    public String directAttack() {
-        if (DuelView.isMultiPlayer) {
-            setGamePhase(PhaseController.currentPhase);
-            opponent = PhaseController.playerAgainst;
-            player = PhaseController.playerInTurn;
+    public String directAttack(String token) {
+        Game game = Game.getGameByToken(token);
+        assert game != null;
+        if (game.isMultiPlayer()) {
+            setGamePhase(game.getCurrentPhase());
+            opponent = game.getPlayerAgainst();
+            player = game.getPlayerInTurn();
         } else {
             setGamePhase(GameController.currentPhase);
             opponentBot = GameController.bot;
             player = GameController.player;
         }
-        MonsterCard playerCard = (MonsterCard) SelectionController.selectedCard;
+        MonsterCard playerCard = (MonsterCard) game.getSelectedCard();
         if (playerCard == null)
             return StatusEnum.NO_CARD_SELECTED_YET.getStatus();
-        if (DuelView.isMultiPlayer) {
-            if (!PhaseController.playerInTurn.getPlayerBoard().getMonsters().contains(playerCard))
+        if (game.isMultiPlayer()) {
+            if (!game.getPlayerInTurn().getPlayerBoard().getMonsters().contains(playerCard))
                 return StatusEnum.CANT_ATTACK_WITH_CARD.getStatus();
         } else {
             if (!GameController.player.getPlayerBoard().getMonsters().contains(playerCard))
@@ -130,9 +129,9 @@ public class AttackController {
             return StatusEnum.CANT_DO_THIS_ACTION_IN_THIS_PHASE.getStatus();
         if (checkAlreadyAttacked(playerCard))
             return StatusEnum.CARD_ALREADY_ATTACKED.getStatus();
-        if (DuelView.isMultiPlayer) {
-            if (PhaseController.playerAgainst.getPlayerBoard().getMonsters().size() > 0 ||
-                    PhaseController.isFirstPlay)
+        if (game.isMultiPlayer()) {
+            if (game.getPlayerInTurn().getPlayerBoard().getMonsters().size() > 0 ||
+                    game.isFirstPlay())
                 return StatusEnum.CANT_ATTACK_DIRECTLY.getStatus();
         } else {
             if (GameController.bot.getBoard().getMonsters().size() > 0 ||
@@ -140,7 +139,7 @@ public class AttackController {
                 return StatusEnum.CANT_ATTACK_DIRECTLY.getStatus();
         }
             isBattleHappened = true;
-            if (DuelView.isMultiPlayer)
+            if (game.isMultiPlayer())
                 damagePlayer(this.opponent, playerCard.getAttackPoint());
             else if (opponentBot.activateTimeSeal())
                 return "your opponent activated Time Seal and all your monsters Destroyed";
@@ -150,13 +149,14 @@ public class AttackController {
             return "your opponent receives" + playerCard.getAttackPoint() + "battle damage\n";
     }
 
-    public String attackMonsterToMonster(String rivalCardNumber) {
+    public String attackMonsterToMonster(String rivalCardNumber, String token) {
+        Game game = Game.getGameByToken(token);
         MonsterCard opponentCard;
-        if (DuelView.isMultiPlayer) {
-            setGamePhase(PhaseController.currentPhase);
-            opponent = PhaseController.playerAgainst;
-            player = PhaseController.playerInTurn;
-            opponentCard = PhaseController.playerAgainst.getPlayerBoard().getMonsterBoard()
+        if (game.isMultiPlayer()) {
+            setGamePhase(game.getCurrentPhase());
+            opponent = game.getPlayerAgainst();
+            player = game.getPlayerInTurn();
+            opponentCard = game.getPlayerAgainst().getPlayerBoard().getMonsterBoard()
                     .get(Integer.parseInt(rivalCardNumber) - 1);
         } else {
             setGamePhase(GameController.currentPhase);
@@ -165,10 +165,10 @@ public class AttackController {
             opponentCard = GameController.bot.getBoard().getMonsterBoard()
                     .get(Integer.parseInt(rivalCardNumber) - 1);
         }
-        MonsterCard playerCard = (MonsterCard) SelectionController.selectedCard;
+        MonsterCard playerCard = (MonsterCard) game.getSelectedCard();
         if (playerCard == null)
             return StatusEnum.NO_CARD_SELECTED_YET.getStatus();
-        if (DuelView.isMultiPlayer) {
+        if (game.isMultiPlayer()) {
             if ((!opponent.getPlayerBoard().getEffectsStatus().getCanStrongRivalAttack() && playerCard.getAttackPoint() >= 1500)
                     || !opponent.getPlayerBoard().getEffectsStatus().getCanRivalAttack()
                     || GetAttackedTraps.activate(playerCard, opponent.getPlayerBoard(), player.getPlayerBoard()))
@@ -179,8 +179,8 @@ public class AttackController {
                     || GetAttackedTraps.activate(playerCard, opponentBot.getBoard(), player.getPlayerBoard()))
                 return "can't attack";
         }
-        if (DuelView.isMultiPlayer) {
-            if (!PhaseController.playerInTurn.getPlayerBoard().getMonsters().contains(playerCard))
+        if (game.isMultiPlayer()) {
+            if (!game.getPlayerInTurn().getPlayerBoard().getMonsters().contains(playerCard))
                 return StatusEnum.CANT_ATTACK_WITH_CARD.getStatus();
         } else {
             if (!GameController.player.getPlayerBoard().getMonsters().contains(playerCard))
@@ -196,14 +196,14 @@ public class AttackController {
             //--------------------Attack OO-------------------------
             isBattleHappened = true;
             alreadyAttackedCards.add(playerCard);
-            if (!DuelView.isMultiPlayer && opponentBot.activateTimeSeal())
+            if (!game.isMultiPlayer() && opponentBot.activateTimeSeal())
                 return "your opponent activated Time Seal and all your monsters Destroyed";
             if (areBothMonstersOffensive(playerCard, opponentCard)) {
-                destroyMonster(playerCard, opponentCard);
+                destroyMonster(playerCard, opponentCard, game);
                 int damage = calculateDifferenceOPoint(playerCard, opponentCard);
 
                 if (isPlayerMonsterStrongerThanOpponent(playerCard, opponentCard) == 1) {
-                    if (DuelView.isMultiPlayer)
+                    if (game.isMultiPlayer())
                         damagePlayer(opponent, damage);
                     else
                         damageBot(opponentBot, damage);
@@ -219,7 +219,7 @@ public class AttackController {
             }
             //--------------------Attack DH & DO--------------------
             else {
-                destroyMonster(playerCard, opponentCard);
+                destroyMonster(playerCard, opponentCard, game);
                 int damage = calculateDifferenceOPoint(playerCard, opponentCard);
                 //DO------------------------------------
                 if (!opponentCard.getIsHidden()) {
@@ -267,17 +267,17 @@ public class AttackController {
         return false;
     }
 
-    public void checkEndGame(MouseEvent event) {
-        if (DuelViewSceneController.isMultiPlayer) {
+    public void checkEndGame(Game game) {
+        if (game.isMultiPlayer()) {
             if (Player.getFirstPlayer().getPlayerBoard().getLifePoints() <= 0)
-                phaseController.endGame(Player.getSecondPlayer(), Player.getFirstPlayer(), event);
+                phaseController.endGame(Player.getSecondPlayer(), Player.getFirstPlayer(), game);
             else if (Player.getSecondPlayer().getPlayerBoard().getLifePoints() <= 0)
-                phaseController.endGame(Player.getFirstPlayer(), Player.getSecondPlayer(), event);
+                phaseController.endGame(Player.getFirstPlayer(), Player.getSecondPlayer(), game);
         } else {
             if (GameController.player.getPlayerBoard().getLifePoints() <= 0)
-                gameController.endGame("bot", event);
+                gameController.endGame("bot", game);
             else if (GameController.bot.getBoard().getLifePoints() <= 0)
-                gameController.endGame("human", event);
+                gameController.endGame("human", game);
         }
     }
 
